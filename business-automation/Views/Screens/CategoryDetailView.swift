@@ -12,6 +12,7 @@ struct CategoryDetailView: View {
     @State private var isImporterPresented = false
     @State private var importErrorMessage: String?
     @State private var previewURL: URL?
+    @State private var pendingDeleteDocument: StoredDocument?
 
     private var categoryDocuments: [StoredDocument] {
         monthPacket.documents(for: category)
@@ -33,22 +34,34 @@ struct CategoryDetailView: View {
                         .cardRow()
                 } else {
                     ForEach(categoryDocuments) { document in
-                        Button {
-                            previewURL = DocumentStorageService.absoluteURL(for: document)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(document.displayName)
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(.primary)
-                                Text(metadataLine(for: document))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                        HStack(spacing: 12) {
+                            Button {
+                                previewURL = DocumentStorageService.absoluteURL(for: document)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(document.displayName)
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(.primary)
+                                    Text(metadataLine(for: document))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 4)
                             }
-                            .padding(.vertical, 4)
+                            .buttonStyle(.plain)
+                            .hoverPointer()
+
+                            Button(role: .destructive) {
+                                pendingDeleteDocument = document
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            .buttonStyle(.borderless)
+                            .hoverPointer()
                         }
-                        .buttonStyle(.plain)
                     }
-                    .onDelete(perform: deleteDocuments)
                     .cardRow()
                 }
             }
@@ -63,6 +76,7 @@ struct CategoryDetailView: View {
                 } label: {
                     Label("Add Files", systemImage: "plus")
                 }
+                .hoverPointer()
             }
         }
         .fileImporter(
@@ -82,6 +96,25 @@ struct CategoryDetailView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(importErrorMessage ?? "Unknown import error")
+        }
+        .alert(
+            "Delete File?",
+            isPresented: Binding(
+                get: { pendingDeleteDocument != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        pendingDeleteDocument = nil
+                    }
+                }
+            ),
+            presenting: pendingDeleteDocument
+        ) { document in
+            Button("Delete", role: .destructive) {
+                deleteDocument(document)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { document in
+            Text("This permanently removes '\(document.displayName)'.")
         }
         .quickLookPreview($previewURL)
         .darkCanvas()
@@ -107,13 +140,9 @@ struct CategoryDetailView: View {
         }
     }
 
-    private func deleteDocuments(offsets: IndexSet) {
-        for index in offsets {
-            let document = categoryDocuments[index]
-            DocumentStorageService.deleteStoredFile(for: document)
-            modelContext.delete(document)
-        }
-
+    private func deleteDocument(_ document: StoredDocument) {
+        DocumentStorageService.deleteStoredFile(for: document)
+        modelContext.delete(document)
         monthPacket.markUpdated()
 
         do {
@@ -121,6 +150,8 @@ struct CategoryDetailView: View {
         } catch {
             importErrorMessage = error.localizedDescription
         }
+
+        pendingDeleteDocument = nil
     }
 
     private func metadataLine(for document: StoredDocument) -> String {

@@ -6,9 +6,9 @@ struct ContentView: View {
     @Query(sort: \MonthPacket.createdAt, order: .reverse) private var monthPackets: [MonthPacket]
 
     @State private var selectedMonthID: UUID?
-    @State private var lastSelectedMonthID: UUID?
+    @State private var lastValidSelectedMonthID: UUID?
     @State private var isClearingSelectionForDeletion = false
-    @State private var detailPath: [DocumentCategory] = []
+    @State private var hasRunLegacyCategoryMigration = false
     @State private var isCreateSheetPresented = false
     @State private var incomingImportNotice: String?
     
@@ -35,6 +35,7 @@ struct ContentView: View {
                         ForEach(monthPackets) { month in
                             MonthRow(month: month)
                                 .tag(month.id)
+                                .hoverPointer()
                             .listRowSeparator(.hidden)
                         }
                         .onDelete(perform: deleteMonths)
@@ -72,15 +73,7 @@ struct ContentView: View {
         } detail: {
             Group {
                 if let selectedMonth {
-                    NavigationStack(path: $detailPath) {
-                        MonthDetailView(
-                            monthPacket: selectedMonth,
-                            selectedMonthID: $selectedMonthID
-                        )
-                        .navigationDestination(for: DocumentCategory.self) { category in
-                            CategoryDetailView(monthPacket: selectedMonth, category: category)
-                        }
-                    }
+                    MonthDetailHostView(monthPacket: selectedMonth)
                     .id(selectedMonth.id)
                 } else {
                     VStack(spacing: 14) {
@@ -105,25 +98,23 @@ struct ContentView: View {
         .onOpenURL { incomingURL in
             handleIncomingSharedFile(incomingURL)
         }
+        .task {
+            runLegacyCategoryMigrationIfNeeded()
+        }
         .onChange(of: selectedMonthID) { _, newValue in
             if let newValue {
-                if let previousSelection = lastSelectedMonthID,
-                   previousSelection != newValue {
-                    detailPath.removeAll()
-                }
-                lastSelectedMonthID = newValue
+                lastValidSelectedMonthID = newValue
                 return
             }
 
             if isClearingSelectionForDeletion {
                 isClearingSelectionForDeletion = false
-                detailPath.removeAll()
                 return
             }
 
-            if let lastSelectedMonthID,
-               monthPackets.contains(where: { $0.id == lastSelectedMonthID }) {
-                selectedMonthID = lastSelectedMonthID
+            if let lastValidSelectedMonthID,
+               monthPackets.contains(where: { $0.id == lastValidSelectedMonthID }) {
+                selectedMonthID = lastValidSelectedMonthID
             }
         }
         .alert("Share Import", isPresented: Binding(
@@ -182,7 +173,6 @@ struct ContentView: View {
         if let selectedMonthID, deletedIDs.contains(selectedMonthID) {
             isClearingSelectionForDeletion = true
             self.selectedMonthID = nil
-            detailPath.removeAll()
         }
     }
 
@@ -208,6 +198,31 @@ struct ContentView: View {
             incomingImportNotice = "Imported into \(selectedMonth.monthLabel) → Bank Report."
         } catch {
             incomingImportNotice = "Failed to import shared file: \(error.localizedDescription)"
+        }
+    }
+
+    private func runLegacyCategoryMigrationIfNeeded() {
+        guard !hasRunLegacyCategoryMigration else { return }
+        hasRunLegacyCategoryMigration = true
+
+        let descriptor = FetchDescriptor<StoredDocument>(
+            predicate: #Predicate { document in
+                document.categoryRawValue == "invoice1" || document.categoryRawValue == "invoice2"
+            }
+        )
+
+        do {
+            let legacyDocuments = try modelContext.fetch(descriptor)
+            guard !legacyDocuments.isEmpty else { return }
+
+            for document in legacyDocuments {
+                document.categoryRawValue = DocumentCategory.invoices.rawValue
+                document.monthPacket?.markUpdated()
+            }
+
+            try modelContext.save()
+        } catch {
+            print("Failed to migrate legacy invoice categories: \(error)")
         }
     }
 }

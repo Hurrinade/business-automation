@@ -4,8 +4,11 @@ struct MonthRow: View {
     let month: MonthPacket
 
     private var requiredReadyCount: Int {
-        let requiredCategories: [DocumentCategory] = [.invoice1, .invoice2, .bankReport]
-        return requiredCategories.filter { !month.documents(for: $0).isEmpty }.count
+        month.completedRequiredCategoryCount
+    }
+
+    private var requiredCategoryCount: Int {
+        month.requiredCategoryCount
     }
 
     var body: some View {
@@ -20,9 +23,15 @@ struct MonthRow: View {
 
                 Spacer()
 
-                Text("\(requiredReadyCount)/3")
-                    .font(.caption.monospacedDigit().weight(.medium))
-                    .foregroundStyle(.secondary)
+                if requiredCategoryCount == 0 {
+                    Text("Optional")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("\(requiredReadyCount)/\(requiredCategoryCount)")
+                        .font(.caption.monospacedDigit().weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
             }
 
             HStack(spacing: 10) {

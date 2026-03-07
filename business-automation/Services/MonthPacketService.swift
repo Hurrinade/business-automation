@@ -88,8 +88,7 @@ struct MonthPacketService {
         Hello,
 
         Attached are the bookkeeping documents for \(month):
-        - Invoice 1
-        - Invoice 2
+        - Invoices
         - Receipts
         - Bank report
 

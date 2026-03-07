@@ -3,6 +3,7 @@ import SwiftUI
 struct CategoryRow: View {
     let category: DocumentCategory
     let count: Int
+    let isRequired: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -16,6 +17,10 @@ struct CategoryRow: View {
                 Text(category.expectedHint)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Text(isRequired ? "Required" : "Optional")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(isRequired ? .orange : .secondary)
             }
 
             Spacer()

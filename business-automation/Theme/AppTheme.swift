@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 enum AppTheme {
     static let canvasTop = Color(red: 0.07, green: 0.09, blue: 0.14)
@@ -65,12 +68,26 @@ extension View {
             .ignoresSafeArea()
         }
     }
+
+    func hoverPointer() -> some View {
+#if os(macOS)
+        onHover { isHovering in
+            if isHovering {
+                NSCursor.pointingHand.set()
+            } else {
+                NSCursor.arrow.set()
+            }
+        }
+#else
+        self
+#endif
+    }
 }
 
 extension DocumentCategory {
     var symbolName: String {
         switch self {
-        case .invoice1, .invoice2:
+        case .invoices:
             return "doc.text"
         case .receipts:
             return "tray.full"

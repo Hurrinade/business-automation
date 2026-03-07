@@ -9,9 +9,17 @@ import UIKit
 struct MonthDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var monthPacket: MonthPacket
-    @Binding var selectedMonthID: UUID?
+    let onOpenCategory: (DocumentCategory) -> Void
     @State private var exportURL: URL?
     @State private var exportErrorMessage: String?
+
+    init(
+        monthPacket: MonthPacket,
+        onOpenCategory: @escaping (DocumentCategory) -> Void = { _ in }
+    ) {
+        self.monthPacket = monthPacket
+        self.onOpenCategory = onOpenCategory
+    }
 
     var body: some View {
         List {
@@ -32,26 +40,27 @@ struct MonthDetailView: View {
 
             Section("Categories") {
                 ForEach(DocumentCategory.allCases) { category in
-                    NavigationLink(value: category) {
-                        CategoryRow(category: category, count: monthPacket.documentCount(for: category))
+                    HStack(spacing: 14) {
+                        Button {
+                            onOpenCategory(category)
+                        } label: {
+                            CategoryRow(
+                                category: category,
+                                count: monthPacket.documentCount(for: category),
+                                isRequired: monthPacket.isCategoryRequired(category)
+                            )
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.borderless)
+                        .hoverPointer()
+
+                        Toggle("Required", isOn: requiredBinding(for: category))
+                            .labelsHidden()
+                            .hoverPointer()
                     }
                     .cardRow()
                 }
-            }
-
-            Section("Checklist Summary") {
-                ForEach(monthPacket.requiredChecklistItems) { item in
-                    HStack {
-                        Image(systemName: item.isComplete ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(item.isComplete ? .green : .secondary)
-                        Text(item.category.title)
-                        Spacer()
-                        Text(item.isComplete ? "Done" : "Missing")
-                            .font(.caption)
-                            .foregroundStyle(item.isComplete ? .green : .orange)
-                    }
-                }
-                .cardRow()
             }
 
             Section("All Files") {
@@ -144,18 +153,6 @@ struct MonthDetailView: View {
             Text(exportErrorMessage ?? "Could not export this month.")
         }
         .darkCanvas()
-        .onAppear {
-            if selectedMonthID != monthPacket.id {
-                selectedMonthID = monthPacket.id
-            }
-            monthPacket.markUpdated()
-            try? modelContext.save()
-        }
-        .onChange(of: monthPacket.id) {
-            if selectedMonthID != monthPacket.id {
-                selectedMonthID = monthPacket.id
-            }
-        }
     }
 
     private func prepareExportPackage() {
@@ -174,5 +171,18 @@ struct MonthDetailView: View {
 #elseif os(iOS)
         UIPasteboard.general.string = draft
 #endif
+    }
+
+    private func requiredBinding(for category: DocumentCategory) -> Binding<Bool> {
+        Binding(
+            get: {
+                monthPacket.isCategoryRequired(category)
+            },
+            set: { isRequired in
+                monthPacket.setCategoryRequired(isRequired, for: category)
+                monthPacket.markUpdated()
+                try? modelContext.save()
+            }
+        )
     }
 }
