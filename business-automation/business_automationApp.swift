@@ -1,10 +1,3 @@
-//
-//  business_automationApp.swift
-//  business-automation
-//
-//  Created by Marko Uremovic on 07.03.2026..
-//
-
 import SwiftUI
 import SwiftData
 
@@ -12,7 +5,8 @@ import SwiftData
 struct business_automationApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            MonthPacket.self,
+            StoredDocument.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -28,5 +22,8 @@ struct business_automationApp: App {
             ContentView()
         }
         .modelContainer(sharedModelContainer)
+#if os(macOS)
+        .windowStyle(.hiddenTitleBar)
+#endif
     }
 }

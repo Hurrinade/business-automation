@@ -1,66 +1,218 @@
-//
-//  ContentView.swift
-//  business-automation
-//
-//  Created by Marko Uremovic on 07.03.2026..
-//
-
 import SwiftUI
 import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @Query(sort: \MonthPacket.createdAt, order: .reverse) private var monthPackets: [MonthPacket]
+
+    @State private var selectedMonthID: UUID?
+    @State private var lastSelectedMonthID: UUID?
+    @State private var isClearingSelectionForDeletion = false
+    @State private var detailPath: [DocumentCategory] = []
+    @State private var isCreateSheetPresented = false
+    @State private var incomingImportNotice: String?
+    
+    private var readyMonthsCount: Int {
+        monthPackets.filter { $0.status == .ready }.count
+    }
+
+    private var selectedMonth: MonthPacket? {
+        guard let selectedMonthID else { return nil }
+        return monthPackets.first(where: { $0.id == selectedMonthID })
+    }
 
     var body: some View {
         NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+            VStack(spacing: 12) {
+                SidebarHeader(
+                    totalMonths: monthPackets.count,
+                    readyMonths: readyMonthsCount,
+                    onCreateTapped: { isCreateSheetPresented = true }
+                )
+
+                List(selection: $selectedMonthID) {
+                    Section("Month Packets") {
+                        ForEach(monthPackets) { month in
+                            MonthRow(month: month)
+                                .tag(month.id)
+                            .listRowSeparator(.hidden)
+                        }
+                        .onDelete(perform: deleteMonths)
+                    }
+
+                    if monthPackets.isEmpty {
+                        Text("No months yet. Start by creating one.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .listRowSeparator(.hidden)
                     }
                 }
-                .onDelete(perform: deleteItems)
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
-#if os(macOS)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-#endif
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .navigationTitle("Bookkeeping")
             .toolbar {
-#if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-#endif
                 ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                    Button {
+                        isCreateSheetPresented = true
+                    } label: {
+                        Label("New Month", systemImage: "plus")
                     }
                 }
             }
-        } detail: {
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
+            .sheet(isPresented: $isCreateSheetPresented) {
+                MonthCreateSheet { date in
+                    createOrSelectMonth(from: date)
+                }
+                .preferredColorScheme(.dark)
             }
+            .sidebarCanvas()
+        } detail: {
+            Group {
+                if let selectedMonth {
+                    NavigationStack(path: $detailPath) {
+                        MonthDetailView(
+                            monthPacket: selectedMonth,
+                            selectedMonthID: $selectedMonthID
+                        )
+                        .navigationDestination(for: DocumentCategory.self) { category in
+                            CategoryDetailView(monthPacket: selectedMonth, category: category)
+                        }
+                    }
+                    .id(selectedMonth.id)
+                } else {
+                    VStack(spacing: 14) {
+                        Image(systemName: "calendar.badge.plus")
+                            .font(.system(size: 42, weight: .semibold))
+                            .foregroundStyle(AppTheme.highlight)
+
+                        Text("Select a Month")
+                            .font(.system(.title2, design: .rounded).weight(.bold))
+
+                        Text("Create or select a month packet to track documents.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .darkCanvas()
+        }
+        .preferredColorScheme(.dark)
+        .tint(AppTheme.highlight)
+        .onOpenURL { incomingURL in
+            handleIncomingSharedFile(incomingURL)
+        }
+        .onChange(of: selectedMonthID) { _, newValue in
+            if let newValue {
+                if let previousSelection = lastSelectedMonthID,
+                   previousSelection != newValue {
+                    detailPath.removeAll()
+                }
+                lastSelectedMonthID = newValue
+                return
+            }
+
+            if isClearingSelectionForDeletion {
+                isClearingSelectionForDeletion = false
+                detailPath.removeAll()
+                return
+            }
+
+            if let lastSelectedMonthID,
+               monthPackets.contains(where: { $0.id == lastSelectedMonthID }) {
+                selectedMonthID = lastSelectedMonthID
+            }
+        }
+        .alert("Share Import", isPresented: Binding(
+            get: { incomingImportNotice != nil },
+            set: { isShown in
+                if !isShown {
+                    incomingImportNotice = nil
+                }
+            }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(incomingImportNotice ?? "")
+        }
+    }
+
+    private func createOrSelectMonth(from date: Date) {
+        let label = monthLabel(for: date)
+
+        if let existing = monthPackets.first(where: { $0.monthLabel == label }) {
+            selectedMonthID = existing.id
+            return
+        }
+
+        let packet = MonthPacket(monthLabel: label)
+        modelContext.insert(packet)
+        packet.markUpdated()
+
+        do {
+            try modelContext.save()
+            selectedMonthID = packet.id
+        } catch {
+            print("Failed to create month packet: \(error)")
+        }
+    }
+
+    private func deleteMonths(offsets: IndexSet) {
+        let deletedIDs = Set(offsets.map { monthPackets[$0].id })
+
+        for index in offsets {
+            let month = monthPackets[index]
+
+            for document in month.documents {
+                DocumentStorageService.deleteStoredFile(for: document)
+            }
+
+            modelContext.delete(month)
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            print("Failed to delete month packets: \(error)")
+        }
+
+        if let selectedMonthID, deletedIDs.contains(selectedMonthID) {
+            isClearingSelectionForDeletion = true
+            self.selectedMonthID = nil
+            detailPath.removeAll()
+        }
+    }
+
+    private func monthLabel(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "LLLL yyyy"
+        return formatter.string(from: date)
+    }
+
+    private func handleIncomingSharedFile(_ fileURL: URL) {
+        guard let selectedMonth else {
+            incomingImportNotice = "Open a month packet first, then share/import the bank report again."
+            return
+        }
+
+        do {
+            try MonthPacketService.addDocuments(
+                urls: [fileURL],
+                to: selectedMonth,
+                category: .bankReport,
+                modelContext: modelContext
+            )
+            incomingImportNotice = "Imported into \(selectedMonth.monthLabel) → Bank Report."
+        } catch {
+            incomingImportNotice = "Failed to import shared file: \(error.localizedDescription)"
         }
     }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        .modelContainer(for: [MonthPacket.self, StoredDocument.self], inMemory: true)
 }
