@@ -14,9 +14,10 @@ struct CategoryRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(category.title)
                     .font(.system(.headline, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.95))
                 Text(category.expectedHint)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.white.opacity(0.72))
 
                 Text(isRequired ? "Required" : "Optional")
                     .font(.caption2.weight(.semibold))
@@ -35,9 +36,9 @@ struct CategoryRow: View {
 
             Text("\(count)")
                 .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.white.opacity(0.72))
                 .frame(minWidth: 24, alignment: .trailing)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
     }
 }

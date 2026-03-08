@@ -25,6 +25,7 @@ struct CategoryDetailView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
+            .padding(.vertical, 10)
             .cardRow()
 
             Section {
@@ -35,21 +36,25 @@ struct CategoryDetailView: View {
                 } else {
                     ForEach(categoryDocuments) { document in
                         HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(document.displayName)
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(.primary)
+                                Text(metadataLine(for: document))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 10)
+
                             Button {
                                 previewURL = DocumentStorageService.absoluteURL(for: document)
                             } label: {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(document.displayName)
-                                        .font(.subheadline.weight(.medium))
-                                        .foregroundStyle(.primary)
-                                    Text(metadataLine(for: document))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.vertical, 4)
+                                Label("Preview", systemImage: "eye")
+                                    .labelStyle(.titleAndIcon)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                             .hoverPointer()
 
                             Button(role: .destructive) {

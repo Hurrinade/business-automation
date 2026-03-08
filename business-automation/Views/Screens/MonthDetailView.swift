@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import QuickLook
 #if os(macOS)
 import AppKit
 #elseif os(iOS)
@@ -12,6 +13,7 @@ struct MonthDetailView: View {
     let onOpenCategory: (DocumentCategory) -> Void
     @State private var exportURL: URL?
     @State private var exportErrorMessage: String?
+    @State private var previewURL: URL?
 
     init(
         monthPacket: MonthPacket,
@@ -35,6 +37,7 @@ struct MonthDetailView: View {
                     Spacer()
                     StatusBadge(status: monthPacket.status)
                 }
+                .padding(.vertical, 8)
             }
             .cardRow()
 
@@ -52,7 +55,8 @@ struct MonthDetailView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .contentShape(Rectangle())
                         }
-                        .buttonStyle(.borderless)
+                        .padding(.vertical, 4)
+                        .buttonStyle(.plain)
                         .hoverPointer()
 
                         Toggle("Required", isOn: requiredBinding(for: category))
@@ -67,10 +71,11 @@ struct MonthDetailView: View {
                 if monthPacket.documents.isEmpty {
                     Text("No files added yet")
                         .foregroundStyle(.secondary)
+                        .padding(.vertical, 10)
                         .cardRow()
                 } else {
                     ForEach(monthPacket.documents.sorted(by: { $0.addedAt > $1.addedAt })) { document in
-                        HStack {
+                        HStack(spacing: 12) {
                             Image(systemName: document.category.symbolName)
                                 .foregroundStyle(AppTheme.highlight)
                                 .frame(width: 28)
@@ -82,8 +87,21 @@ struct MonthDetailView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                            Button {
+                                previewURL = DocumentStorageService.absoluteURL(for: document)
+                            } label: {
+                                Label("Preview", systemImage: "eye")
+                                    .labelStyle(.titleAndIcon)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .hoverPointer()
+
                             Spacer()
                         }
+                        .padding(.vertical, 10)
                     }
                     .cardRow()
                 }
@@ -95,6 +113,7 @@ struct MonthDetailView: View {
                 } label: {
                     Label("Prepare Export Folder", systemImage: "folder.badge.plus")
                 }
+                .padding(.vertical, 10)
                 .cardRow()
 
                 if let exportURL {
@@ -108,6 +127,7 @@ struct MonthDetailView: View {
             Section("Email Draft") {
                 Text(MonthPacketService.emailDraft(for: monthPacket))
                     .font(.callout.monospaced())
+                    .padding(.vertical, 10)
                     .textSelection(.enabled)
                     .cardRow()
 
@@ -116,6 +136,7 @@ struct MonthDetailView: View {
                 } label: {
                     Label("Copy Email Draft", systemImage: "doc.on.doc")
                 }
+                .padding(.vertical, 10)
                 .cardRow()
             }
 
@@ -132,6 +153,7 @@ struct MonthDetailView: View {
                         monthPacket.markUpdated()
                     }
             }
+            .padding(.vertical, 10)
             .cardRow()
         }
         .scrollContentBackground(.hidden)
@@ -152,6 +174,7 @@ struct MonthDetailView: View {
         } message: {
             Text(exportErrorMessage ?? "Could not export this month.")
         }
+        .quickLookPreview($previewURL)
         .darkCanvas()
     }
 
