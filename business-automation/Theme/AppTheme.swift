@@ -43,16 +43,6 @@ extension View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-
-                Circle()
-                    .fill(AppTheme.highlight.opacity(0.16))
-                    .frame(width: 280)
-                    .offset(x: -140, y: -260)
-
-                Circle()
-                    .fill(AppTheme.highlightSecondary.opacity(0.12))
-                    .frame(width: 320)
-                    .offset(x: 180, y: 300)
             }
             .ignoresSafeArea()
         }

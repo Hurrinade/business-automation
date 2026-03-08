@@ -83,16 +83,18 @@ struct MonthPacketService {
         let month = monthPacket.monthLabel
 
         return """
-        Subject: Business documents for \(month)
+        Subject: Datum isplate plače i dokumenti \(month)
 
-        Hello,
+        Pozdrav,
 
-        Attached are the bookkeeping documents for \(month):
-        - Invoices
-        - Receipts
-        - Bank report
+        U privitku dostavljam dokumente za \(month):
+        - Računi
+        - Troškovi firme
+        - Izvadak iz banke
 
-        Best regards
+        LP,
+        Marko Uremović
+        Rinade d.o.o.
         """
     }
 }

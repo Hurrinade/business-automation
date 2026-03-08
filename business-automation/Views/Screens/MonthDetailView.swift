@@ -111,17 +111,18 @@ struct MonthDetailView: View {
                 Button {
                     prepareExportPackage()
                 } label: {
-                    Label("Prepare Export Folder", systemImage: "folder.badge.plus")
+                    Label("Export Folder", systemImage: "folder.badge.plus")
                 }
                 .padding(.vertical, 10)
                 .cardRow()
 
-                if let exportURL {
-                    ShareLink(item: exportURL) {
-                        Label("Share Export Folder", systemImage: "square.and.arrow.up")
-                    }
-                    .cardRow()
-                }
+//                if let exportURL {
+//                    ShareLink(item: exportURL) {
+//                        Label("Share Export Folder", systemImage: "square.and.arrow.up")
+//                    }
+//                    .padding(.vertical, 10)
+//                    .cardRow()
+//                }
             }
 
             Section("Email Draft") {
@@ -180,7 +181,11 @@ struct MonthDetailView: View {
 
     private func prepareExportPackage() {
         do {
-            exportURL = try MonthPacketService.exportPackage(for: monthPacket)
+            let folderURL = try MonthPacketService.exportPackage(for: monthPacket)
+            exportURL = folderURL
+#if os(macOS)
+            NSWorkspace.shared.activateFileViewerSelecting([folderURL])
+#endif
         } catch {
             exportErrorMessage = error.localizedDescription
         }
