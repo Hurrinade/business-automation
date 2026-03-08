@@ -8,10 +8,10 @@ enum AppTheme {
     static let canvasBottom = Color(red: 0.02, green: 0.03, blue: 0.06)
     static let sidebarTop = Color(red: 0.08, green: 0.10, blue: 0.15)
     static let sidebarBottom = Color(red: 0.04, green: 0.05, blue: 0.09)
-    static let highlight = Color(red: 0.20, green: 0.64, blue: 0.84)
-    static let highlightSecondary = Color(red: 0.12, green: 0.74, blue: 0.62)
-    static let cardFill = Color.white.opacity(0.10)
-    static let cardStroke = Color.white.opacity(0.12)
+    static let highlight = Color(red: 0.40, green: 0.78, blue: 0.96)
+    static let highlightSecondary = Color(red: 0.20, green: 0.82, blue: 0.66)
+    static let cardFill = Color.white.opacity(0.14)
+    static let cardStroke = Color.white.opacity(0.18)
 }
 
 struct CardRowStyle: ViewModifier {
